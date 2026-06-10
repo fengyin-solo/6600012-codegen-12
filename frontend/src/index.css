@@ -4,3 +4,7 @@
 
 body { margin: 0; background: #0a0a1a; color: white; font-family: system-ui, sans-serif; }
 #root { height: 100vh; display: flex; }
+
+.grid-cols-2.grid-rows-2 {
+  grid-template-rows: 1fr 1fr;
+}

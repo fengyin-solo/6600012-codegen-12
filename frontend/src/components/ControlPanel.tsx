@@ -1,5 +1,6 @@
 import { useSimStore } from '../store/simulation'
-import type { SimMode } from '../types'
+import type { SimMode, ViewType } from '../types'
+import { VIEW_CONFIGS } from '../types'
 
 const MODES: { value: SimMode; label: string; icon: string }[] = [
   { value: 'gravity', label: '重力吸引', icon: '🌍' },
@@ -21,6 +22,102 @@ export default function ControlPanel() {
   return (
     <div className="w-80 bg-gray-900 border-l border-gray-700 p-4 overflow-y-auto flex flex-col gap-4">
       <h2 className="text-lg font-bold text-white">粒子物理模拟器</h2>
+
+      {/* View Layout */}
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">视角布局</label>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => store.setViewLayout('single')}
+            className={`px-2 py-2 rounded text-sm font-medium transition ${
+              store.viewLayout === 'single'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            单视角
+          </button>
+          <button
+            onClick={() => store.setViewLayout('triple')}
+            className={`px-2 py-2 rounded text-sm font-medium transition ${
+              store.viewLayout === 'triple'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            三视角
+          </button>
+          <button
+            onClick={() => store.setViewLayout('quad')}
+            className={`px-2 py-2 rounded text-sm font-medium transition ${
+              store.viewLayout === 'quad'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            四视角
+          </button>
+        </div>
+      </div>
+
+      {/* Trail Controls */}
+      <div className="bg-gray-800/50 rounded p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-200">
+            ✨ 运动轨迹
+          </label>
+          <button
+            onClick={() => store.setTrail({ enabled: !store.trail.enabled })}
+            className={`px-3 py-1 rounded text-xs font-medium transition ${
+              store.trail.enabled
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-600 text-gray-300'
+            }`}
+          >
+            {store.trail.enabled ? '开启' : '关闭'}
+          </button>
+        </div>
+        {store.trail.enabled && (
+          <>
+            <div>
+              <label className="text-xs text-gray-400">轨迹长度: {store.trail.length}</label>
+              <input type="range" min={20} max={300} step={10}
+                value={store.trail.length}
+                onChange={e => store.setTrail({ length: Number(e.target.value) })}
+                className="w-full accent-green-500" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400">轨迹透明度: {store.trail.opacity.toFixed(2)}</label>
+              <input type="range" min={0.1} max={1} step={0.05}
+                value={store.trail.opacity}
+                onChange={e => store.setTrail({ opacity: Number(e.target.value) })}
+                className="w-full accent-green-500" />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Single View Selector */}
+      {store.viewLayout === 'single' && (
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">当前视角</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(VIEW_CONFIGS) as ViewType[]).map(vt => (
+              <button
+                key={vt}
+                onClick={() => store.setSingleView(vt)}
+                className={`px-3 py-2 rounded text-sm font-medium transition ${
+                  store.singleView === vt
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {VIEW_CONFIGS[vt].icon} {VIEW_CONFIGS[vt].label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mode */}
       <div>
