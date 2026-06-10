@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stars, Line } from '@react-three/drei'
+import { OrbitControls, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { useSimStore } from '../store/simulation'
 import { applyPhysics } from '../simulations/physics'
@@ -79,41 +79,90 @@ function ParticleInstances() {
 }
 
 function TrailLines() {
-  const particles = useSimStore(s => s.particles)
-  const history = useSimStore(s => s.particleHistory)
+  const particleCount = useSimStore(s => s.particleCount)
   const enabled = useSimStore(s => s.trail.enabled)
   const opacity = useSimStore(s => s.trail.opacity)
-  const length = useSimStore(s => s.trail.length)
+  const trailLength = useSimStore(s => s.trail.length)
+  const pointsRef = useRef<THREE.Points>(null)
+  const totalPoints = particleCount * trailLength
 
-  const trailLines = useMemo(() => {
-    return particles.map((p, i) => {
-      const points: [number, number, number][] = []
+  const positions = useMemo(() => new Float32Array(totalPoints * 3), [totalPoints])
+  const colors = useMemo(() => {
+    const arr = new Float32Array(totalPoints * 3)
+    const particles = useSimStore.getState().particles
+    particles.forEach((p, i) => {
+      const color = new THREE.Color(p.color)
+      for (let j = 0; j < trailLength; j++) {
+        const idx = (i * trailLength + j) * 3
+        arr[idx] = color.r
+        arr[idx + 1] = color.g
+        arr[idx + 2] = color.b
+      }
+    })
+    return arr
+  }, [particleCount, trailLength])
+
+  useFrame(() => {
+    if (!enabled || !pointsRef.current) return
+    const state = useSimStore.getState()
+    const history = state.particleHistory
+    const geom = pointsRef.current.geometry
+    const posAttr = geom.attributes.position as THREE.BufferAttribute
+    const count = Math.min(particleCount, history.length)
+
+    for (let i = 0; i < count; i++) {
       const h = history[i]
-      if (h) {
-        const startIdx = Math.max(0, h.length - length)
-        for (let j = startIdx; j < h.length; j++) {
-          if (h[j]) points.push(h[j])
+      if (!h) continue
+      const startIdx = Math.max(0, h.length - trailLength)
+      let writePos = 0
+      for (let j = startIdx; j < h.length; j++) {
+        if (h[j]) {
+          const idx = (i * trailLength + writePos) * 3
+          posAttr.array[idx] = h[j][0]
+          posAttr.array[idx + 1] = h[j][1]
+          posAttr.array[idx + 2] = h[j][2]
+          writePos++
         }
       }
-      return { points, color: p.color, id: p.id }
-    })
-  }, [particles, history, length])
+      for (let j = writePos; j < trailLength; j++) {
+        const idx = (i * trailLength + j) * 3
+        const lastIdx = (i * trailLength + Math.max(0, writePos - 1)) * 3
+        posAttr.array[idx] = posAttr.array[lastIdx]
+        posAttr.array[idx + 1] = posAttr.array[lastIdx + 1]
+        posAttr.array[idx + 2] = posAttr.array[lastIdx + 2]
+      }
+    }
+    posAttr.needsUpdate = true
+  })
 
   if (!enabled) return null
 
   return (
-    <group>
-      {trailLines.map(t => t.points.length >= 2 && (
-        <Line
-          key={t.id}
-          points={t.points}
-          color={t.color}
-          lineWidth={1}
-          transparent
-          opacity={opacity}
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={totalPoints}
+          array={positions}
+          itemSize={3}
         />
-      ))}
-    </group>
+        <bufferAttribute
+          attach="attributes-color"
+          count={totalPoints}
+          array={colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.25}
+        vertexColors
+        transparent
+        opacity={opacity}
+        sizeAttenuation
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   )
 }
 
@@ -297,13 +346,11 @@ export default function MultiViewCanvas() {
 
   if (viewLayout === 'triple') {
     return (
-      <div className="w-full h-full flex bg-gray-900 gap-1 p-1">
-        <div className="flex-1 flex flex-col gap-1">
-          <ViewportCanvas viewType="free" className="flex-1" />
-          <div className="flex gap-1 h-1/3">
-            <ViewportCanvas viewType="top" className="flex-1" />
-            <ViewportCanvas viewType="side" className="flex-1" />
-          </div>
+      <div className="w-full h-full flex flex-col bg-gray-900 gap-1 p-1">
+        <ViewportCanvas viewType="free" className="flex-1 min-h-0" />
+        <div className="flex gap-1 h-1/3 min-h-0">
+          <ViewportCanvas viewType="top" className="flex-1" />
+          <ViewportCanvas viewType="side" className="flex-1" />
         </div>
       </div>
     )
